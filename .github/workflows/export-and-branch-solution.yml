@@ -25,7 +25,7 @@ on:
        default: solutions/
 env:
 #edit your values here
-  ENVIRONMENT_URL: 'https://wipflinfptest.crm.dynamics.com/'
+  ENVIRONMENT_URL: 'https://wipflinfptest.crm.dynamics.com'
   CLIENT_ID: 'c3b2eb5e-f1b0-472f-84e1-98370ccc341d'
   TENANT_ID: '41cbb242-7069-49d5-a0f4-b620d0539058'
 permissions:
@@ -34,6 +34,7 @@ jobs:
   export-from-dev:
     runs-on: windows-latest
     # or you can say runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       RUNNER_DEBUG: 1
 
