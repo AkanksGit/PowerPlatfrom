@@ -34,9 +34,10 @@ jobs:
   export-from-dev:
     runs-on: windows-latest
     # or you can say runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 360
     env:
       RUNNER_DEBUG: 1
+      ACTIONS_STEP_DEBUG: true
 
     steps:
     - uses: actions/checkout@v2
@@ -61,7 +62,8 @@ jobs:
         tenant-id: ${{env.TENANT_ID}}
         solution-name: ${{ github.event.inputs.solution_name }}
         solution-output-file: ${{ github.event.inputs.solution_exported_folder}}/${{ github.event.inputs.solution_name }}.zip
-
+        timeout: 120
+  
     - name: unpack-solution action
       uses: microsoft/powerplatform-actions/unpack-solution@v0
       with:
