@@ -34,7 +34,7 @@ jobs:
   export-from-dev:
     runs-on: windows-latest
     # or you can say runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     env:
       RUNNER_DEBUG: 1
 
