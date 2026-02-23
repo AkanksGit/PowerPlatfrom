@@ -79,6 +79,6 @@ jobs:
       with:
         solution-folder: ${{ github.event.inputs.solution_folder}}/${{ github.event.inputs.solution_name }}
         solution-target-folder: ${{ github.event.inputs.solution_target_folder}}/${{ github.event.inputs.solution_name }}
-        repo-token: ${{ secrets.PAT_TOKEN }}
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
         allow-empty-commit: true
         commit-message: "Solution export: ${{ github.event.inputs.solution_name }}"
