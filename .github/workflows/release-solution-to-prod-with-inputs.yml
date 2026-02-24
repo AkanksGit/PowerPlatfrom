@@ -82,6 +82,7 @@ jobs:
         solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}.zip
         force-overwrite: true
         publish-changes: true
+        async: true
 
     - name: Export solution as managed
       uses: microsoft/powerplatform-actions/export-solution@v1
@@ -126,3 +127,4 @@ jobs:
         solution-file: ${{ inputs.solution_release_folder}}/${{ inputs.solution_name }}_managed.zip
         force-overwrite: true
         publish-changes: true
+        async: true
