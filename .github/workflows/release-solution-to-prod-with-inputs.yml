@@ -60,6 +60,37 @@ jobs:
       uses: microsoft/powerplatform-actions/actions-install@v1
       with:
         version: latest
+        
+    - name: Ensure pac CLI is available (Windows)
+      shell: pwsh
+      run: |
+        Write-Host "Checking for pac on PATH..."
+        $pac = Get-Command pac -ErrorAction SilentlyContinue
+        if ($pac) {
+          Write-Host "pac found at: $($pac.Path)"
+          pac --version
+        } else {
+          Write-Host "pac not found. Attempting fallback install via npm..."
+          # Ensure Node is available (windows-latest includes Node)
+          node --version
+          npm --version
+
+          # Install official Power Platform CLI npm package as fallback
+          npm install -g @microsoft/powerplatform-cli || npm install -g pac || Write-Host "npm install returned non-zero; continuing to check PATH"
+
+          # Give the shell a moment to pick up new PATH entries
+          Start-Sleep -Seconds 5
+
+          $pac = Get-Command pac -ErrorAction SilentlyContinue
+          if ($pac) {
+            Write-Host "pac installed at: $($pac.Path)"
+            pac --version
+          } else {
+            Write-Error "pac CLI still not found after fallback install. Print PATH for debugging:"
+            Write-Host $env:PATH
+            exit 1
+          }
+        }
 
     - name: Show pac version
       run: |
@@ -135,6 +166,40 @@ jobs:
       with:
         name: managedSolutions
         path: ${{ inputs.solution_release_folder}}
+    - name: Install Power Platform Tools (latest pac)
+      uses: microsoft/powerplatform-actions/actions-install@v1
+      with:
+        version: latest    
+    - name: Ensure pac CLI is available (Windows)
+      shell: pwsh
+      run: |
+        Write-Host "Checking for pac on PATH..."
+        $pac = Get-Command pac -ErrorAction SilentlyContinue
+        if ($pac) {
+          Write-Host "pac found at: $($pac.Path)"
+          pac --version
+        } else {
+          Write-Host "pac not found. Attempting fallback install via npm..."
+          # Ensure Node is available (windows-latest includes Node)
+          node --version
+          npm --version
+
+          # Install official Power Platform CLI npm package as fallback
+          npm install -g @microsoft/powerplatform-cli || npm install -g pac || Write-Host "npm install returned non-zero; continuing to check PATH"
+
+          # Give the shell a moment to pick up new PATH entries
+          Start-Sleep -Seconds 5
+
+          $pac = Get-Command pac -ErrorAction SilentlyContinue
+          if ($pac) {
+            Write-Host "pac installed at: $($pac.Path)"
+            pac --version
+          } else {
+            Write-Error "pac CLI still not found after fallback install. Print PATH for debugging:"
+            Write-Host $env:PATH
+            exit 1
+          }
+        }
 
     - name: Show pac version (release job)
       run: |
