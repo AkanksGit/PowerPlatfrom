@@ -1,21 +1,26 @@
 name: release-solution-to-prod-reusable
-# Reusable workflow using pac Web API authentication
+# Reusable workflow
+# convert solution to managed (using a build PowerPlatform environment for the conversion)
+# upload the solution to the GitHub artifacts and deploy to the PROD environment
 on:
   workflow_call:
-    inputs:
+    inputs: 
+      #Do Not change these values
+      #Values are set by the caller
+      #caller sample: release-action-call.ymnl
       solution_name:
         description: 'The solution name.'
         type: string
-        default: ALMLab
+        default: ALMLab       
       solution_shipping_folder:
-        description: 'folder name for staging the exported solution *do not change*'
+        description: 'folder name for staging the exported solution *do not change*'        
         type: string
         default: out/ship/
       solution_outbound_folder:
         description: 'staging the unpacked solution folder before check-in *do not change*'
         type: string
         default: out/solutions/
-      solution_source_folder:
+      solution_source_folder: 
        description: 'folder name to be created and checked in *do not change*'
        type: string
        default: solutions/
@@ -26,16 +31,16 @@ on:
       BUILD_ENVIRONMENT_URL:
         description: 'Build environment url.'
         type: string
-        required: true
-      PRODUCTION_ENVIRONMENT_URL:
+        required: true      
+      PRODUCTION_ENVIRONMENT_URL: 
         description: 'Production environment url.'
         type: string
         required: true
-      CLIENT_ID:
+      CLIENT_ID: 
         description: 'The client id'
         type: string
         required: true
-      TENANT_ID:
+      TENANT_ID: 
         description: 'The tenant id'
         type: string
         required: true
@@ -47,104 +52,46 @@ on:
 jobs:
   convert-to-managed:
     runs-on: windows-latest
-    timeout-minutes: 60
+    # or you can say runs-on: ubuntu-latest
     env:
       RUNNER_DEBUG: 1
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
       with:
         lfs: true
 
-    - name: Install Power Platform Tools (latest pac)
-      uses: microsoft/powerplatform-actions/actions-install@v1
-      with:
-        version: latest
-        
-    - name: Ensure pac CLI is available (Windows)
-      shell: pwsh
-      run: |
-        Write-Host "Checking for pac on PATH..."
-        $pac = Get-Command pac -ErrorAction SilentlyContinue
-        if ($pac) {
-          Write-Host "pac found at: $($pac.Path)"
-          pac --version
-        } else {
-          Write-Host "pac not found. Attempting fallback install via npm..."
-          # Ensure Node is available (windows-latest includes Node)
-          node --version
-          npm --version
-
-          # Install official Power Platform CLI npm package as fallback
-          npm install -g @microsoft/powerplatform-cli || npm install -g pac || Write-Host "npm install returned non-zero; continuing to check PATH"
-
-          # Give the shell a moment to pick up new PATH entries
-          Start-Sleep -Seconds 5
-
-          $pac = Get-Command pac -ErrorAction SilentlyContinue
-          if ($pac) {
-            Write-Host "pac installed at: $($pac.Path)"
-            pac --version
-          } else {
-            Write-Error "pac CLI still not found after fallback install. Print PATH for debugging:"
-            Write-Host $env:PATH
-            exit 1
-          }
-        }
-
-    - name: Show pac version
-      run: |
-        pac --version
-
     - name: Pack solution
-      uses: microsoft/powerplatform-actions/pack-solution@v1
+      uses: microsoft/powerplatform-actions/pack-solution@v0
       with:
         solution-folder: ${{ inputs.solution_source_folder}}/${{ inputs.solution_name }}
         solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}.zip
         solution-type: Unmanaged
 
-    - name: Authenticate to Build environment (pac Web API)
-      run: |
-        pac auth create --url "${{ inputs.BUILD_ENVIRONMENT_URL }}" `
-          --tenant "${{ inputs.TENANT_ID }}" `
-          --applicationId "${{ inputs.CLIENT_ID }}" `
-          --clientSecret "${{ secrets.envSecret }}"
-        pac auth list
-        pac org who --url "${{ inputs.BUILD_ENVIRONMENT_URL }}"
+    - name: Import solution as unmanaged to build env
+      uses: microsoft/powerplatform-actions/import-solution@v0
+      with:
+        environment-url: ${{inputs.BUILD_ENVIRONMENT_URL}}
+        app-id: ${{inputs.CLIENT_ID}}
+        client-secret: ${{ secrets.envSecret }}
+        tenant-id: ${{inputs.TENANT_ID}}
+        solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}.zip
+        force-overwrite: true
+        publish-changes: true
 
-    - name: Import solution as unmanaged to build env (pac async)
-      run: |
-        pac solution import --path "${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}.zip" --async --environment "${{ inputs.BUILD_ENVIRONMENT_URL }}"
-
-    - name: Wait for import to appear in Build environment (poll)
-      run: |
-        $solutionName = "${{ inputs.solution_name }}"
-        $envUrl = "${{ inputs.BUILD_ENVIRONMENT_URL }}"
-        $maxAttempts = 40
-        $attempt = 0
-        while ($attempt -lt $maxAttempts) {
-          Write-Host "Checking for solution '$solutionName' in $envUrl (attempt $($attempt+1)/$maxAttempts)..."
-          $list = pac solution list --environment $envUrl
-          if ($list -match $solutionName) {
-            Write-Host "Solution found."
-            break
-          }
-          Start-Sleep -Seconds 15
-          $attempt++
-        }
-        if ($attempt -ge $maxAttempts) {
-          Write-Error "Timed out waiting for solution to appear in build environment."
-          exit 1
-        }
-
-    - name: Export solution as managed (pac)
-      run: |
-        $outPath = "${{ inputs.solution_shipping_folder}}/${{ inputs.solution_name }}_managed.zip"
-        pac solution export --name "${{ inputs.solution_name }}" --managed --path $outPath --environment "${{ inputs.BUILD_ENVIRONMENT_URL }}"
-        Write-Host "Exported managed solution to $outPath"
+    - name: Export solution as managed
+      uses: microsoft/powerplatform-actions/export-solution@v0
+      with:
+        environment-url: ${{inputs.BUILD_ENVIRONMENT_URL}}
+        app-id: ${{inputs.CLIENT_ID}}
+        client-secret: ${{ secrets.envSecret }} 
+        tenant-id: ${{inputs.TENANT_ID}}
+        solution-name: ${{ inputs.solution_name }}
+        managed: true
+        solution-output-file: ${{ inputs.solution_shipping_folder}}/${{ inputs.solution_name }}_managed.zip
 
     - name: Upload the ready to ship solution to GH artifact store
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v2
       with:
         name: managedSolutions
         path: ${{ inputs.solution_shipping_folder}}/
@@ -152,94 +99,26 @@ jobs:
   release-to-staging:
     needs: [ convert-to-managed ]
     runs-on: windows-latest
-    timeout-minutes: 120
     env:
       RUNNER_DEBUG: 1
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v2
       with:
         lfs: true
 
     - name: Fetch the ready to ship solution from GH artifact store
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v2
       with:
         name: managedSolutions
         path: ${{ inputs.solution_release_folder}}
-    - name: Install Power Platform Tools (latest pac)
-      uses: microsoft/powerplatform-actions/actions-install@v1
+    - name: Import solution to prod env
+      uses: microsoft/powerplatform-actions/import-solution@v0
       with:
-        version: latest    
-    - name: Ensure pac CLI is available (Windows)
-      shell: pwsh
-      run: |
-        Write-Host "Checking for pac on PATH..."
-        $pac = Get-Command pac -ErrorAction SilentlyContinue
-        if ($pac) {
-          Write-Host "pac found at: $($pac.Path)"
-          pac --version
-        } else {
-          Write-Host "pac not found. Attempting fallback install via npm..."
-          # Ensure Node is available (windows-latest includes Node)
-          node --version
-          npm --version
-
-          # Install official Power Platform CLI npm package as fallback
-          npm install -g @microsoft/powerplatform-cli || npm install -g pac || Write-Host "npm install returned non-zero; continuing to check PATH"
-
-          # Give the shell a moment to pick up new PATH entries
-          Start-Sleep -Seconds 5
-
-          $pac = Get-Command pac -ErrorAction SilentlyContinue
-          if ($pac) {
-            Write-Host "pac installed at: $($pac.Path)"
-            pac --version
-          } else {
-            Write-Error "pac CLI still not found after fallback install. Print PATH for debugging:"
-            Write-Host $env:PATH
-            exit 1
-          }
-        }
-
-    - name: Show pac version (release job)
-      run: |
-        pac --version
-
-    - name: Authenticate to Production environment (pac Web API)
-      run: |
-        pac auth create --url "${{ inputs.PRODUCTION_ENVIRONMENT_URL }}" `
-          --tenant "${{ inputs.TENANT_ID }}" `
-          --applicationId "${{ inputs.CLIENT_ID }}" `
-          --clientSecret "${{ secrets.envSecret }}"
-        pac auth list
-        pac org who --url "${{ inputs.PRODUCTION_ENVIRONMENT_URL }}"
-
-    - name: Import solution to prod env (pac async)
-      run: |
-        pac solution import --path "${{ inputs.solution_release_folder}}/${{ inputs.solution_name }}_managed.zip" --async --environment "${{ inputs.PRODUCTION_ENVIRONMENT_URL }}"
-
-    - name: Poll for import completion in Production (simple check)
-      run: |
-        $solutionName = "${{ inputs.solution_name }}"
-        $envUrl = "${{ inputs.PRODUCTION_ENVIRONMENT_URL }}"
-        $maxAttempts = 80
-        $attempt = 0
-        while ($attempt -lt $maxAttempts) {
-          Write-Host "Checking for solution '$solutionName' in $envUrl (attempt $($attempt+1)/$maxAttempts)..."
-          $list = pac solution list --environment $envUrl
-          if ($list -match $solutionName) {
-            Write-Host "Solution appears in production org. Import likely completed."
-            break
-          }
-          Start-Sleep -Seconds 30
-          $attempt++
-        }
-        if ($attempt -ge $maxAttempts) {
-          Write-Error "Timed out waiting for solution to appear in production environment."
-          exit 1
-        }
-
-    - name: Cleanup pac auth profiles
-      run: |
-        # Remove all pac auth profiles to avoid leaking secrets in runner state
-        pac auth clear --all || Write-Host "No auth profiles to clear"
+        environment-url: ${{inputs.PRODUCTION_ENVIRONMENT_URL}}
+        app-id: ${{inputs.CLIENT_ID}}
+        client-secret: ${{ secrets.envSecret }}
+        tenant-id: ${{inputs.TENANT_ID}}
+        solution-file: ${{ inputs.solution_release_folder}}/${{ inputs.solution_name }}_managed.zip
+        force-overwrite: true
+        publish-changes: true
