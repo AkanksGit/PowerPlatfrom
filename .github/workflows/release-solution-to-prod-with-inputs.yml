@@ -61,19 +61,19 @@ jobs:
       with:
         lfs: true
     - name: Install Power Platform Tools
-      uses: microsoft/powerplatform-actions/actions-install@v2
+      uses: microsoft/powerplatform-actions/actions-install@v1
       with: 
         version: latest
       
     - name: Pack solution
-      uses: microsoft/powerplatform-actions/pack-solution@v2
+      uses: microsoft/powerplatform-actions/pack-solution@v1
       with:
         solution-folder: ${{ inputs.solution_source_folder}}/${{ inputs.solution_name }}
         solution-file: ${{ inputs.solution_outbound_folder}}/${{ inputs.solution_name }}.zip
         solution-type: Unmanaged
 
     - name: Import solution as unmanaged to build env
-      uses: microsoft/powerplatform-actions/import-solution@v2
+      uses: microsoft/powerplatform-actions/import-solution@v1
       with:
         environment-url: ${{inputs.BUILD_ENVIRONMENT_URL}}
         app-id: ${{inputs.CLIENT_ID}}
@@ -84,7 +84,7 @@ jobs:
         publish-changes: true
 
     - name: Export solution as managed
-      uses: microsoft/powerplatform-actions/export-solution@v2
+      uses: microsoft/powerplatform-actions/export-solution@v1
       with:
         environment-url: ${{inputs.BUILD_ENVIRONMENT_URL}}
         app-id: ${{inputs.CLIENT_ID}}
@@ -117,7 +117,7 @@ jobs:
         name: managedSolutions
         path: ${{ inputs.solution_release_folder}}
     - name: Import solution to prod env
-      uses: microsoft/powerplatform-actions/import-solution@v2
+      uses: microsoft/powerplatform-actions/import-solution@v1
       with:
         environment-url: ${{inputs.PRODUCTION_ENVIRONMENT_URL}}
         app-id: ${{inputs.CLIENT_ID}}
